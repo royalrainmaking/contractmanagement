@@ -289,6 +289,110 @@ function openProjectReport(id) {
     switchView('report');
 }
 
+function printProjectSummary() {
+    // Get the current active filter data
+    const filterPlan = document.getElementById('filter-plan').value;
+    const filterItem = document.getElementById('filter-item-type').value;
+    const searchVal = document.getElementById('search-input').value;
+
+    const filtered = projects.filter(p => {
+        const c_no = (p.notes && p.notes.contractNo) ? p.notes.contractNo.toLowerCase() : '';
+        const search = searchVal.toLowerCase();
+        const matchSearch = p.name.toLowerCase().includes(search) || (p.contractor && p.contractor.toLowerCase().includes(search)) || c_no.includes(search);
+        const pPlan = (p.notes && p.notes.plan) ? p.notes.plan : 'การปฏิบัติการฝนหลวง';
+        const pItem = (p.notes && p.notes.itemType) ? p.notes.itemType : 'งบรายจ่ายอื่น';
+        const matchPlan = filterPlan === 'all' || pPlan === filterPlan;
+        const matchItem = filterItem === 'all' || pItem === filterItem;
+        return matchSearch && matchPlan && matchItem;
+    });
+
+    if (filtered.length === 0) {
+        Swal.fire('ไม่มีข้อมูล', 'ไม่พบรายการโครงการที่จะพิมพ์', 'info');
+        return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    const thaiDate = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    let rowsHtml = filtered.map((p, index) => {
+        const statusHtml = getCurrentProjectStatusHTML(p).replace(/<[^>]*>?/gm, ''); // Strip tags for print
+        return `
+            <tr>
+                <td style="text-align: center;">${index + 1}</td>
+                <td>${p.name} <br> <small style="color:#666;">(${(p.notes && p.notes.plan) || '-'} / ${(p.notes && p.notes.itemType) || '-'})</small></td>
+                <td>${p.contractor || '-'} <br> <small>เลขที่สัญญา: ${(p.notes && p.notes.contractNo) || '-'}</small></td>
+                <td>${statusHtml}</td>
+                <td style="text-align: right;">${formatCurrency(p.budget)}</td>
+                <td style="text-align: right;">${formatCurrency(p.po || 0)}</td>
+                <td style="text-align: right;">${formatCurrency(p.disbursed)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const totalBudget = filtered.reduce((sum, p) => sum + Number(p.budget), 0);
+    const totalPO = filtered.reduce((sum, p) => sum + Number(p.po || 0), 0);
+    const totalDisbursed = filtered.reduce((sum, p) => sum + Number(p.disbursed), 0);
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>รายงานสรุปโครงการ - กองบริหารการบินเกษตร</title>
+            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                body { font-family: 'Sarabun', sans-serif; padding: 30px; color: #333; }
+                h1 { text-align: center; color: #1e564d; margin-bottom: 5px; }
+                .subtitle { text-align: center; margin-bottom: 30px; font-size: 14px; color: #666; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+                th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: top; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+                .footer { margin-top: 40px; text-align: right; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px; }
+                .summary { margin-top: 20px; float: right; width: 40%; }
+                .summary table { border: none; }
+                .summary td { border: none; padding: 3px 0; }
+                .summary .total { font-weight: bold; font-size: 16px; border-top: 2px solid #1e564d; padding-top: 10px; }
+            </style>
+        </head>
+        <body>
+            <h1>รายงานสรุปโครงการจัดซื้อจัดจ้าง</h1>
+            <div class="subtitle">กองบริหารการบินเกษตร | ข้อมูล ณ วันที่ ${thaiDate}</div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">ลำดับ</th>
+                        <th>ชื่อโครงการ / แผนงาน</th>
+                        <th>ผู้รับจ้าง / เลขที่สัญญา</th>
+                        <th>สถานะปัจจุบัน</th>
+                        <th>งบประมาณ (บาท)</th>
+                        <th>PO / ก่อหนี้ (บาท)</th>
+                        <th>เบิกจ่าย (บาท)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+
+            <div class="summary">
+                <table>
+                    <tr><td>รวมวงเงินงบประมาณทั้งสิ้น:</td><td style="text-align: right;">${formatCurrency(totalBudget)} บาท</td></tr>
+                    <tr><td>รวมวงเงิน PO / ก่อหนี้:</td><td style="text-align: right;">${formatCurrency(totalPO)} บาท</td></tr>
+                    <tr><td>รวมเบิกจ่ายแล้วทั้งสิ้น:</td><td style="text-align: right; color: #1bb295;">${formatCurrency(totalDisbursed)} บาท</td></tr>
+                    <tr class="total"><td>คงเหลือสุทธิ:</td><td style="text-align: right; color: #f5965b;">${formatCurrency(totalBudget - totalDisbursed)} บาท</td></tr>
+                </table>
+            </div>
+
+            <div style="clear: both;"></div>
+            <div class="footer">จัดทำโดย: ระบบบริหารจัดการสัญญา กองบริหารการบินเกษตร</div>
+            <script>
+                window.onload = function() { window.print(); window.close(); }
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
 function parseThaiDate(thaiDateStr) {
     if (!thaiDateStr) return null;
 

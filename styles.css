@@ -1031,3 +1031,33 @@ body {
         padding: 10px;
     }
 }
+
+/* Print Styles Utility */
+@media print {
+
+    .sidebar,
+    .nav-tabs,
+    .search-box,
+    .stat-action,
+    .btn,
+    .icon-btn,
+    .close-modal,
+    .form-section-title i {
+        display: none !important;
+    }
+
+    .app-container {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .main-content {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .content-box {
+        box-shadow: none !important;
+        border: 1px solid #eee !important;
+    }
+}
