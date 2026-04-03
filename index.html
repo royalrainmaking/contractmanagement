@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดซื้อจัดจ้าง กองบริหารการบินเกษตร</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Flatpickr for Thai Calendar -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="user-profile">
+                <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="user-info">
+                    <span class="username">admin</span>
+                    <span class="role">ผู้ดูแลระบบ ADMIN</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">หมวดหมู่เอกสาร</div>
+                <ul class="nav-list">
+                    <li class="nav-item active" id="nav-dashboard">
+                        <i class="fa-solid fa-border-all"></i>
+                        <span>แดชบอร์ด</span>
+                    </li>
+                    <li class="nav-item" id="nav-report">
+                        <i class="fa-solid fa-file-lines"></i>
+                        <span>แผนและรายงาน</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">ผู้ดูแลระบบ</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span>จัดการผู้ใช้</span>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1 id="page-title">ระบบจัดซื้อจัดจ้าง กองบริหารการบินเกษตร</h1>
+                    <p class="current-date" id="current-date">วันพฤหัสบดีที่ 2 เมษายน 2569</p>
+                </div>
+                <div class="header-actions" id="header-actions">
+                </div>
+            </header>
+
+            <!-- View: Dashboard -->
+            <div class="view-section active" id="view-dashboard">
+
+                <div
+                    style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 20px; background: white; padding: 15px 20px; border-radius: 8px; border: 1px solid #e1e8ed; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 15px;">
+                    <div style="font-weight: 600; color: #2c3e50; font-size: 16px;"><i class="fa-solid fa-chart-line"
+                            style="color:var(--teal)"></i> งบประมาณและการเบิกจ่ายรวม</div>
+                    <div style="display:flex; gap: 15px; flex-wrap: wrap;">
+                        <div style="display:flex; align-items:center;">
+                            <span style="font-size:13px; color:#666; margin-right:8px; font-weight:500;">แผนงาน:</span>
+                            <select id="filter-plan" onchange="handleSearch()"
+                                style="padding:6px 12px; border-radius:4px; border:1px solid #ddd; font-family: Sarabun; background:#fafbfc; min-width: 220px;">
+                                <option value="all">-- ทุกแผนงาน --</option>
+                                <option value="การปฏิบัติการฝนหลวง">1. การปฏิบัติการฝนหลวง</option>
+                                <option value="บริการด้านการบิน">2. บริการด้านการบิน</option>
+                                <option value="ปฏิบัติการดัดแปรสภาพอากาศแก้ปัญหาฝุ่นละอองขนาดเล็ก">3.
+                                    ปฏิบัติการดัดแปรสภาพอากาศแก้ปัญหาฝุ่นละอองขนาดเล็ก</option>
+                                <option value="ปฏิบัติการดัดแปรสภาพอากาศบรรเทาความรุนแรงของพายุลูกเห็บ">4.
+                                    ปฏิบัติการดัดแปรสภาพอากาศบรรเทาความรุนแรงของพายุลูกเห็บ</option>
+                                <option value="จัดหาอากาศยาน">5. จัดหาอากาศยาน</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <span style="font-size:13px; color:#666; margin-right:8px; font-weight:500;">รายการ:</span>
+                            <select id="filter-item-type" onchange="handleSearch()"
+                                style="padding:6px 12px; border-radius:4px; border:1px solid #ddd; font-family: Sarabun; background:#fafbfc; min-width: 150px;">
+                                <option value="all">-- ทุกรายการ --</option>
+                                <option value="งบรายจ่ายอื่น">1. งบรายจ่ายอื่น</option>
+                                <option value="งบลงทุน">2. งบลงทุน</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card teal">
+                        <div class="stat-icon"><i class="fa-regular fa-folder-open"></i></div>
+                        <div class="stat-title">โครงการทั้งหมด</div>
+                        <div class="stat-value" id="stat-total-projects">0</div>
+                        <div class="stat-action" onclick="openModal()"><i class="fa-solid fa-plus"></i> เพิ่มโครงการใหม่
+                        </div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon"><i class="fa-solid fa-check-circle"></i></div>
+                        <div class="stat-title">วงเงินงบประมาณรวม (บาท)</div>
+                        <div class="stat-value" id="stat-total-budget">0.00</div>
+                        <div class="stat-action"><i class="fa-solid fa-plus"></i> ดูรายละเอียดงบ</div>
+                    </div>
+                    <div class="stat-card yellow">
+                        <div class="stat-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                        <div class="stat-title">PO / ก่อหนี้รวม (บาท)</div>
+                        <div class="stat-value" id="stat-total-po">0.00</div>
+                        <div class="stat-action"><i class="fa-solid fa-plus"></i> ดูรายละเอียด PO</div>
+                    </div>
+                    <div class="stat-card cyan">
+                        <div class="stat-icon"><i class="fa-regular fa-credit-card"></i></div>
+                        <div class="stat-title">เบิกจ่ายแล้ว (บาท)</div>
+                        <div class="stat-value" id="stat-total-disbursed">0.00</div>
+                        <div class="stat-action"><i class="fa-solid fa-plus"></i> ดูประวัติการเบิกจ่าย</div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                        <div class="stat-title">คงเหลือสุทธิ (บาท)</div>
+                        <div class="stat-value" id="stat-net-balance">0.00</div>
+                        <div class="stat-action"><i class="fa-solid fa-plus"></i> รายงานสรุป</div>
+                    </div>
+                </div>
+
+                <div class="content-box">
+                    <div class="box-header">
+                        <h2 class="box-title"><i class="fa-solid fa-border-all"></i> ตารางรายการโครงการ</h2>
+                        <div class="search-box">
+                            <i class="fa-solid fa-search"></i>
+                            <input type="text" id="search-input" placeholder="ค้นหาโครงการ..." onkeyup="handleSearch()">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="project-table">
+                            <thead>
+                                <tr>
+                                    <th>ลำดับ</th>
+                                    <th>ชื่อโครงการ</th>
+                                    <th>ผู้รับจ้าง/ผู้ควบคุมงาน</th>
+                                    <th>สถานะปัจจุบัน / หมดสัญญา</th>
+                                    <th>วงเงินงบประมาณ</th>
+                                    <th>PO / ก่อหนี้</th>
+                                    <th>เบิกจ่ายแล้ว</th>
+                                    <th style="min-width: 80px;">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="project-table-body">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Report/Details -->
+            <div class="view-section" id="view-report">
+                <div class="content-box report-box">
+                    <div class="box-header report-header">
+                        <h2 class="box-title"><i class="fa-solid fa-file-lines"></i>
+                            รายงานแผนการดำเนินงานและการใช้จ่ายงบลงทุน<br><small
+                                class="sub-title">ประจำปีงบประมาณ</small></h2>
+                        <button class="btn btn-teal" onclick="openModal()"><i class="fa-solid fa-plus"></i>
+                            เพิ่มโครงการใหม่</button>
+                    </div>
+
+                    <div class="report-details-card" id="report-content" style="display: none;">
+                        <div class="card-header-actions">
+                            <div class="badges">
+                                <span class="badge teal-badge" id="r-id">ลำดับที่ -</span>
+                                <span class="badge outline-badge" id="r-type">-</span>
+                                <span class="badge outline-badge" id="r-contract-no"
+                                    style="display:none; color:#c2185b; border-color:#f48fb1; background:#fce4ec;">เลขที่สัญญา:
+                                    -</span>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-outline" onclick="openEditModal()"><i
+                                        class="fa-solid fa-pen"></i> อัปเดตข้อมูล</button>
+                                <button class="btn btn-outline" style="color: #e74c3c; border-color: #f1a9a0;"
+                                    onclick="deleteCurrentProject()"><i class="fa-solid fa-trash"></i> ลบทิ้ง</button>
+                            </div>
+                        </div>
+
+                        <h3 class="project-name" id="r-name">-</h3>
+
+                        <div class="personnel-info">
+                            <p><i class="fa-solid fa-users"></i> <span>ผู้รับจ้าง:</span> <span
+                                    id="r-contractor">-</span></p>
+                            <p><i class="fa-regular fa-user"></i> <span>ผู้ควบคุมงาน:</span> <span
+                                    id="r-supervisor">-</span></p>
+                        </div>
+
+                        <div class="committee-info"
+                            style="margin-top: 15px; margin-bottom: 20px; padding: 15px; background: #fdfdfd; border: 1px dashed #ced4da; border-radius: 6px;">
+                            <div
+                                style="display:flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                <h4 style="font-size: 13px; color: #555; margin: 0;"><i
+                                        class="fa-solid fa-users-gear"></i> คณะกรรมการ 3 ชุด</h4>
+                                <button onclick="openCommitteeModal()"
+                                    style="padding: 4px 10px; font-size: 11px; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; color: #555; transition: 0.2s;"
+                                    onmouseover="this.style.background='#f0f0f0'"
+                                    onmouseout="this.style.background='white'"><i class="fa-solid fa-pen"></i>
+                                    จัดการรายชื่อ</button>
+                            </div>
+                            <div
+                                style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; font-size: 12px; line-height: 1.5;">
+                                <div
+                                    style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 6px;">
+                                    <strong style="color:var(--teal); display:block; margin-bottom:4px;">1. กรรมการร่าง
+                                        TOR</strong><span id="r-comm-tor"
+                                        style="color:#666; white-space: pre-line;">-</span>
+                                </div>
+                                <div
+                                    style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 6px;">
+                                    <strong style="color:var(--teal); display:block; margin-bottom:4px;">2.
+                                        กรรมการพิจารณาผล</strong><span id="r-comm-eval"
+                                        style="color:#666; white-space: pre-line;">-</span>
+                                </div>
+                                <div
+                                    style="background: white; padding: 10px; border: 1px solid #eee; border-radius: 6px;">
+                                    <strong style="color:var(--teal); display:block; margin-bottom:4px;">3.
+                                        กรรมการตรวจรับฯ</strong><span id="r-comm-inspect"
+                                        style="color:#666; white-space: pre-line;">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="progress-section">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" id="r-progress-bar" style="width: 0%;"></div>
+                            </div>
+                            <div class="progress-text" id="r-progress-text">0.0% เบิกจ่ายแล้ว</div>
+                        </div>
+
+                        <div class="budget-summary-grid">
+                            <div class="budget-item">
+                                <div class="budget-label">งบจัดสรร (บาท)</div>
+                                <div class="budget-value text-dark" id="r-budget">0.00</div>
+                            </div>
+                            <div class="budget-item">
+                                <div class="budget-label">PO / ก่อหนี้ (บาท)</div>
+                                <div class="budget-value text-yellow" id="r-po">0.00</div>
+                            </div>
+                            <div class="budget-item">
+                                <div class="budget-label">เบิกจ่าย (บาท)</div>
+                                <div class="budget-value text-teal" id="r-disbursed">0.00</div>
+                            </div>
+                            <div class="budget-item highlight">
+                                <div class="budget-label">คงเหลือสุทธิ (บาท)</div>
+                                <div class="budget-value text-orange" id="r-balance">0.00</div>
+                            </div>
+                        </div>
+
+                        <div class="status-tracker">
+                            <h4 class="section-heading"><i class="fa-regular fa-circle-check"></i>
+                                สถานะการจัดซื้อจัดจ้างและก่อหนี้ผูกพัน <small
+                                    style="color:var(--teal); font-size:12px; font-weight:normal; margin-left:10px;">(คลิกที่ไทม์ไลน์เพื่ออัปเดต)</small>
+                            </h4>
+
+                            <div id="contract-end-alert"
+                                style="display:none; background: linear-gradient(135deg, #c2185b, #e91e63); padding: 20px; border-radius: 12px; margin-bottom: 25px; color: white; border: none; box-shadow: 0 6px 20px rgba(233, 30, 99, 0.25); text-align: center;">
+                                <i class="fa-regular fa-calendar-check"
+                                    style="font-size: 24px; vertical-align: middle; margin-right: 12px;"></i>
+                                <span id="contract-end-text"
+                                    style="font-size: 20px; font-weight: 700; letter-spacing: 0.5px; vertical-align: middle;">วันสิ้นสุดสัญญา:
+                                    คำนวณอัตโนมัติ</span>
+                            </div>
+
+                            <div class="steps-container">
+                                <div class="step completed interactive-step" id="step-tor"
+                                    onclick="updateSingleStep('tor')">
+                                    <div class="step-icon"><i class="fa-solid fa-check"></i></div>
+                                    <div class="step-label">ร่าง TOR</div>
+                                    <div class="step-date" id="date-tor">-</div>
+                                </div>
+                                <div class="step-line" id="line-1"></div>
+                                <div class="step pending interactive-step" id="step-announce"
+                                    onclick="updateSingleStep('announce')">
+                                    <div class="step-icon">2</div>
+                                    <div class="step-label">ประกาศฯ</div>
+                                    <div class="step-date" id="date-announce">-</div>
+                                </div>
+                                <div class="step-line" id="line-2"></div>
+                                <div class="step pending interactive-step" id="step-consideration"
+                                    onclick="updateSingleStep('consideration')">
+                                    <div class="step-icon">3</div>
+                                    <div class="step-label">พิจารณาผล</div>
+                                    <div class="step-date" id="date-consideration">-</div>
+                                </div>
+                                <div class="step-line" id="line-3"></div>
+                                <div class="step pending interactive-step" id="step-appeal"
+                                    onclick="updateSingleStep('appeal')">
+                                    <div class="step-icon">4</div>
+                                    <div class="step-label">อุทธรณ์</div>
+                                    <div class="step-date" id="date-appeal">-</div>
+                                </div>
+                                <div class="step-line" id="line-4"></div>
+                                <div class="step pending interactive-step" id="step-waitsign"
+                                    onclick="updateSingleStep('waitsign')">
+                                    <div class="step-icon">5</div>
+                                    <div class="step-label">รอลงนาม</div>
+                                    <div class="step-date" id="date-waitsign">-</div>
+                                </div>
+                                <div class="step-line" id="line-5"></div>
+                                <div class="step pending interactive-step" id="step-signed"
+                                    onclick="updateSingleStep('signed')">
+                                    <div class="step-icon">6</div>
+                                    <div class="step-label">ลงนามสัญญา</div>
+                                    <div class="step-date" id="date-signed">-</div>
+                                </div>
+                                <div class="step-line" id="line-6"></div>
+                                <div class="step pending interactive-step" id="step-inspection"
+                                    onclick="updateSingleStep('inspection')">
+                                    <div class="step-icon">7</div>
+                                    <div class="step-label">ตรวจรับฯ</div>
+                                    <div class="step-date" id="date-inspection">-</div>
+                                </div>
+                                <div class="step-line" id="line-7"></div>
+                                <div class="step pending interactive-step" id="step-payment"
+                                    onclick="updateSingleStep('payment')">
+                                    <div class="step-icon">8</div>
+                                    <div class="step-label">เบิกเงิน</div>
+                                    <div class="step-date" id="date-payment">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- แผนการดำเนินงาน -->
+                        <div class="monthly-plan mt-4">
+                            <h4 class="section-heading"><i class="fa-regular fa-calendar-days"></i>
+                                ไทม์ไลน์อายุสัญญา (รายเดือน)</h4>
+                            <div class="months-grid" id="dynamic-months-grid">
+                                <!-- JS Generated -->
+                            </div>
+                        </div>
+
+                    </div>
+                    <div id="no-report-selection" style="padding: 40px; text-align: center; color: var(--text-muted);">
+                        <i class="fa-regular fa-folder-open" style="font-size: 40px; margin-bottom: 15px;"></i>
+                        <p>คลิกเลือกโครงการจากหน้ารายการเพื่อดูรายละเอียด</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Adding/Editing Project -->
+    <div class="modal-overlay" id="projectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-pen"></i> <span id="modal-title">เพิ่มโครงการใหม่</span></h2>
+                <button class="close-modal" onclick="closeModal()" type="button"><i
+                        class="fa-solid fa-times"></i></button>
+            </div>
+
+            <form id="projectForm" onsubmit="saveProject(event)"
+                style="display: flex; flex-direction: column; overflow: hidden; min-height: 0; flex: 1;">
+                <input type="hidden" id="p-id" value="">
+                <div class="modal-body">
+                    <div class="form-section">
+                        <h3 class="form-section-title"><i class="fa-solid fa-file-lines text-teal"></i>
+                            ข้อมูลทั่วไปของโครงการ</h3>
+                        <div class="form-group full-width">
+                            <label>ชื่อโครงการ <span class="required">*</span></label>
+                            <input type="text" id="p-name" placeholder="ระบุชื่อโครงการ..." required>
+                        </div>
+
+                        <div class="form-row" style="grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div class="form-group">
+                                <label>แผนงาน <span class="required">*</span></label>
+                                <select id="p-plan" required>
+                                    <option value="การปฏิบัติการฝนหลวง">1. การปฏิบัติการฝนหลวง</option>
+                                    <option value="บริการด้านการบิน">2. บริการด้านการบิน</option>
+                                    <option value="ปฏิบัติการดัดแปรสภาพอากาศแก้ปัญหาฝุ่นละอองขนาดเล็ก">3.
+                                        ปฏิบัติการดัดแปรสภาพอากาศแก้ปัญหาฝุ่นละอองขนาดเล็ก</option>
+                                    <option value="ปฏิบัติการดัดแปรสภาพอากาศบรรเทาความรุนแรงของพายุลูกเห็บ">4.
+                                        ปฏิบัติการดัดแปรสภาพอากาศบรรเทาความรุนแรงของพายุลูกเห็บ</option>
+                                    <option value="จัดหาอากาศยาน">5. จัดหาอากาศยาน</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>รายการ (ประเภทงบ) <span class="required">*</span></label>
+                                <select id="p-item-type" required>
+                                    <option value="งบรายจ่ายอื่น">1. งบรายจ่ายอื่น</option>
+                                    <option value="งบลงทุน">2. งบลงทุน</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row three-cols">
+                            <div class="form-group">
+                                <label>วิธีจัดซื้อจัดจ้าง</label>
+                                <select id="p-type">
+                                    <option value="เฉพาะเจาะจง">เฉพาะเจาะจง</option>
+                                    <option value="e-bidding">e-bidding</option>
+                                    <option value="คัดเลือก">คัดเลือก</option>
+                                    <option value="สอบราคา">สอบราคา</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>บริษัท/ห้างหุ้นส่วนจำกัด (ผู้รับจ้าง)</label>
+                                <input type="text" id="p-contractor" placeholder="ระบุชื่อผู้รับจ้าง...">
+                            </div>
+                            <div class="form-group">
+                                <label>ผู้ควบคุมงาน</label>
+                                <input type="text" id="p-supervisor" placeholder="ระบุชื่อผู้ควบคุมงาน...">
+                            </div>
+                            <div class="form-group">
+                                <label>สัญญากี่วัน (ระยะเวลา)</label>
+                                <input type="number" id="p-duration" placeholder="เช่น 120" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section no-bg">
+                        <div class="number-badge">1</div>
+                        <h3 class="form-section-title inline text-dark">งบประมาณและการเบิกจ่ายรวม</h3>
+                        <div class="form-row three-cols mt-3">
+                            <div class="form-group">
+                                <label>งบจัดสรร (1)</label>
+                                <input type="number" step="0.01" id="p-budget" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>PO (2)</label>
+                                <input type="number" step="0.01" id="p-po" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>เบิกจ่าย (3)</label>
+                                <input type="number" step="0.01" id="p-disbursed" value="0" class="text-teal">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">ยกเลิก</button>
+                    <button type="submit" class="btn btn-teal"><i class="fa-solid fa-check-circle"></i>
+                        บันทึกและอัปเดต</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+
+</html>
