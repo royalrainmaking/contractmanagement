@@ -47,8 +47,8 @@ function checkStatusStepsSequence() {
 
 document.addEventListener('DOMContentLoaded', () => {
     initStepValidation();
-    document.getElementById('nav-dashboard').addEventListener('click', () => switchView('dashboard'));
-    document.getElementById('nav-report').addEventListener('click', () => switchView('report'));
+    const navDashboard = document.getElementById('nav-dashboard');
+    if (navDashboard) navDashboard.addEventListener('click', () => switchView('dashboard'));
 
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('current-date').innerText = new Date().toLocaleDateString('th-TH', options);
@@ -144,16 +144,15 @@ function switchView(viewName) {
 const formatCurrency = (num) => Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function getCurrentProjectStatusHTML(p) {
-    const stepNames = { payment: 'เบิกจ่ายเงินเสร็จสิ้น', inspection: 'ตรวจรับแล้ว', signed: 'ลงนามสัญญาแล้ว', waitsign: 'รอลงนามผูกพัน', appeal: 'ช่วงอุทธรณ์', consideration: 'พิจารณาผลผู้ชนะ', announce: 'ประกาศจัดซื้อจัดจ้าง', tor: 'ร่าง TOR' };
+    const stepNames = { payment: 'เบิกจ่ายเงินเสร็จสิ้น', inspection: 'ตรวจรับแล้ว', signed: 'เริ่มงาน (ลงนามสัญญา)', waitsign: 'สนอง', appeal: 'ประกาศผู้ชนะ', consideration: 'พิจารณาผลผู้ชนะ', announce: 'ประกาศจัดซื้อจัดจ้าง', tor: 'ร่าง TOR' };
     const order = ['payment', 'inspection', 'signed', 'waitsign', 'appeal', 'consideration', 'announce', 'tor'];
 
     let currentStepText = '<span style="color:#888;">ยังไม่เริ่มดำเนินการ</span>';
-    let isSigned = false;
+    const isSigned = p.dates && p.dates.signed && p.dates.signed !== '-' && !p.dates.signed.includes('รอ');
 
     for (let k of order) {
         if (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ')) {
             currentStepText = `<span style="color:var(--teal); font-weight:600;"><i class="fa-regular fa-circle-check"></i> ${stepNames[k]}</span><br><span style="font-size:12px; color:#666;">อัปเดต: ${formatThaiShort(p.dates[k])}</span>`;
-            if (k === 'signed') isSigned = true;
             break;
         }
     }
@@ -204,10 +203,12 @@ function renderDashboard() {
     const searchInputEl = document.getElementById('search-input');
     const filterPlanEl = document.getElementById('filter-plan');
     const filterItemEl = document.getElementById('filter-item-type');
+    const filterTypeEl = document.getElementById('filter-type');
 
     const searchTerm = searchInputEl ? searchInputEl.value : '';
     const filterPlan = filterPlanEl ? filterPlanEl.value : 'all';
     const filterItem = filterItemEl ? filterItemEl.value : 'all';
+    const filterType = filterTypeEl ? filterTypeEl.value : 'all';
 
     let totalBudget = 0;
     let totalPO = 0;
@@ -225,8 +226,9 @@ function renderDashboard() {
 
         const matchPlan = filterPlan === 'all' || pPlan === filterPlan;
         const matchItem = filterItem === 'all' || pItem === filterItem;
+        const matchType = filterType === 'all' || p.contractType === filterType;
 
-        return matchSearch && matchPlan && matchItem;
+        return matchSearch && matchPlan && matchItem && matchType;
     });
 
     const tbody = document.getElementById('project-table-body');
@@ -239,13 +241,10 @@ function renderDashboard() {
         totalDisbursed += Number(p.disbursed);
     });
 
-    const netBalance = totalBudget - totalDisbursed;
-
     document.getElementById('stat-total-projects').innerText = filteredProjects.length;
     document.getElementById('stat-total-budget').innerText = formatCurrency(totalBudget);
     document.getElementById('stat-total-po').innerText = formatCurrency(totalPO);
     document.getElementById('stat-total-disbursed').innerText = formatCurrency(totalDisbursed);
-    document.getElementById('stat-net-balance').innerText = formatCurrency(netBalance);
 
     filteredProjects.forEach((p, index) => {
         const tr = document.createElement('tr');
@@ -260,6 +259,30 @@ function renderDashboard() {
                 <span class="badge outline-badge" style="font-size:10px; border-color:#d4a529; color:#d4a529;">${(p.notes && p.notes.itemType) ? p.notes.itemType : 'งบรายจ่ายอื่น'}</span>
             </div>
         `;
+
+        // Calculate operational progress based on steps (1-8)
+        const stepsToCheck = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
+        let completedSteps = 0;
+        stepsToCheck.forEach(k => {
+            if (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ')) {
+                completedSteps++;
+            }
+        });
+        const progressPercent = (completedSteps / 8) * 100;
+        const progressColor = progressPercent >= 100 ? '#8bc36a' : (progressPercent >= 50 ? '#1bb295' : '#f5965b');
+
+        // Expiry & Deadline Calculation
+        const expiryDate = calculateExpiryDate(p.dates.signed, p.duration);
+        let remainingDays = '-';
+        let remainingColor = '#333';
+        if (expiryDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const timeDiff = expiryDate.getTime() - today.getTime();
+            remainingDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            remainingColor = remainingDays > 7 ? '#1bb295' : (remainingDays >= 0 ? '#f5965b' : '#e74c3c');
+        }
+
         tr.innerHTML = `
             <td>${index + 1}</td>
             <td>
@@ -272,9 +295,14 @@ function renderDashboard() {
                 <div class="sub-text">ผู้ควบคุมงาน: ${p.supervisor || '-'}</div>
             </td>
             <td>${getCurrentProjectStatusHTML(p)}</td>
-            <td>฿${formatCurrency(p.budget)}</td>
             <td class="text-yellow">฿${formatCurrency(p.po || 0)}</td>
-            <td class="text-teal">฿${formatCurrency(p.disbursed)}</td>
+            <td style="font-weight:600; text-align:center;">${expiryDate ? formatThaiShort(expiryDate) : '-'}</td>
+            <td>
+                <div style="font-size: 11px; margin-bottom: 4px; font-weight: 600; color: ${progressColor};">${progressPercent.toFixed(1)}%</div>
+                <div style="width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
+                    <div style="width: ${progressPercent}%; height: 100%; background: ${progressColor}; transition: width 0.4s ease;"></div>
+                </div>
+            </td>
             <td>
                 <button class="icon-btn" onclick="openEditModal(${p.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
                 <button class="icon-btn" style="color: #e74c3c; margin-left: 10px;" onclick="deleteProject(event, ${p.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
@@ -290,9 +318,9 @@ function openProjectReport(id) {
 }
 
 function printProjectSummary() {
-    // Get the current active filter data
     const filterPlan = document.getElementById('filter-plan').value;
     const filterItem = document.getElementById('filter-item-type').value;
+    const filterType = document.getElementById('filter-type').value;
     const searchVal = document.getElementById('search-input').value;
 
     const filtered = projects.filter(p => {
@@ -303,7 +331,8 @@ function printProjectSummary() {
         const pItem = (p.notes && p.notes.itemType) ? p.notes.itemType : 'งบรายจ่ายอื่น';
         const matchPlan = filterPlan === 'all' || pPlan === filterPlan;
         const matchItem = filterItem === 'all' || pItem === filterItem;
-        return matchSearch && matchPlan && matchItem;
+        const matchType = filterType === 'all' || p.contractType === filterType;
+        return matchSearch && matchPlan && matchItem && matchType;
     });
 
     if (filtered.length === 0) {
@@ -311,61 +340,101 @@ function printProjectSummary() {
         return;
     }
 
+    const groups = {};
+    filtered.forEach(p => {
+        const plan = (p.notes && p.notes.plan) || 'ไม่ระบุแผนงาน';
+        const itemType = (p.notes && p.notes.itemType) || 'ไม่ระบุแหล่งเงิน';
+        if (!groups[plan]) groups[plan] = {};
+        if (!groups[plan][itemType]) groups[plan][itemType] = { projects: [], budget: 0, po: 0, disbursed: 0 };
+        groups[plan][itemType].projects.push(p);
+        groups[plan][itemType].budget += Number(p.budget);
+        groups[plan][itemType].po += Number(p.po || 0);
+        groups[plan][itemType].disbursed += Number(p.disbursed);
+    });
+
     const printWindow = window.open('', '_blank');
     const thaiDate = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
 
+    let summaryHtml = '';
+    for (let plan in groups) {
+        summaryHtml += `<div class="group-header">${plan}</div>`;
+        summaryHtml += `<div class="sc-container">`;
+        for (let itemType in groups[plan]) {
+            const g = groups[plan][itemType];
+            summaryHtml += `
+                <div class="summary-card">
+                    <div class="sc-title">${itemType}</div>
+                    <div class="sc-grid">
+                        <div class="sc-item"><span>โครงการ:</span> <strong>${g.projects.length}</strong></div>
+                        <div class="sc-item"><span>งบประมาณ:</span> <strong>${formatCurrency(g.budget)}</strong></div>
+                        <div class="sc-item"><span>PO/ก่อหนี้:</span> <strong>${formatCurrency(g.po)}</strong></div>
+                        <div class="sc-item"><span>เบิกจ่าย:</span> <strong style="color:#1bb295">${formatCurrency(g.disbursed)}</strong></div>
+                    </div>
+                </div>
+            `;
+        }
+        summaryHtml += `</div>`;
+    }
+
     let rowsHtml = filtered.map((p, index) => {
-        const statusHtml = getCurrentProjectStatusHTML(p).replace(/<[^>]*>?/gm, ''); // Strip tags for print
+        const statusHtml = getCurrentProjectStatusHTML(p).replace(/<[^>]*>?/gm, '');
+        const expiryDate = calculateExpiryDate(p.dates.signed, p.duration);
         return `
             <tr>
                 <td style="text-align: center;">${index + 1}</td>
                 <td>${p.name} <br> <small style="color:#666;">(${(p.notes && p.notes.plan) || '-'} / ${(p.notes && p.notes.itemType) || '-'})</small></td>
-                <td>${p.contractor || '-'} <br> <small>เลขที่สัญญา: ${(p.notes && p.notes.contractNo) || '-'}</small></td>
-                <td>${statusHtml}</td>
-                <td style="text-align: right;">${formatCurrency(p.budget)}</td>
+                <td>${p.contractor || '-'} <br> <small>เลขสัญญา: ${(p.notes && p.notes.contractNo) || '-'}</small></td>
+                <td style="text-align:center">${statusHtml}</td>
                 <td style="text-align: right;">${formatCurrency(p.po || 0)}</td>
-                <td style="text-align: right;">${formatCurrency(p.disbursed)}</td>
+                <td style="text-align: center;">${p.duration || '-'}</td>
+                <td style="text-align: center; font-weight:bold; color:#d81b60;">${expiryDate ? formatThaiShort(expiryDate) : '-'}</td>
             </tr>
         `;
     }).join('');
 
-    const totalBudget = filtered.reduce((sum, p) => sum + Number(p.budget), 0);
-    const totalPO = filtered.reduce((sum, p) => sum + Number(p.po || 0), 0);
-    const totalDisbursed = filtered.reduce((sum, p) => sum + Number(p.disbursed), 0);
-
     printWindow.document.write(`
         <html>
         <head>
-            <title>รายงานสรุปโครงการ - กองบริหารการบินเกษตร</title>
+            <title>รายงานสรุปการดำเนินงาน - กองบริหารการบินเกษตร</title>
             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                body { font-family: 'Sarabun', sans-serif; padding: 30px; color: #333; }
-                h1 { text-align: center; color: #1e564d; margin-bottom: 5px; }
-                .subtitle { text-align: center; margin-bottom: 30px; font-size: 14px; color: #666; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
-                th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: top; }
-                th { background-color: #f2f2f2; font-weight: bold; }
-                .footer { margin-top: 40px; text-align: right; font-size: 12px; border-top: 1px solid #eee; padding-top: 10px; }
-                .summary { margin-top: 20px; float: right; width: 40%; }
-                .summary table { border: none; }
-                .summary td { border: none; padding: 3px 0; }
-                .summary .total { font-weight: bold; font-size: 16px; border-top: 2px solid #1e564d; padding-top: 10px; }
+                @page { size: landscape; margin: 10mm; }
+                body { font-family: 'Sarabun', sans-serif; padding: 20px; color: #333; line-height: 1.5; font-size: 13px; }
+                h1 { text-align: center; color: #1e564d; margin: 0 0 5px 0; font-size: 24px; }
+                .subtitle { text-align: center; margin-bottom: 25px; font-size: 14px; color: #666; }
+                
+                .group-header { background: #1e564d; color: white; padding: 6px 15px; border-radius: 6px; margin: 20px 0 10px 0; font-weight: bold; font-size: 16px; }
+                .sc-container { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 5px; }
+                .summary-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; min-width: 250px; flex: 1; background: #fafafa; }
+                .sc-title { font-weight: bold; color: #1e564d; border-bottom: 1px solid #1bb295; padding-bottom: 4px; margin-bottom: 8px; font-size: 14px; }
+                .sc-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 4px; font-size: 12px; }
+                .sc-item span { color: #666; }
+                
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+                th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: left; vertical-align: middle; }
+                th { background-color: #f2f2f2; font-weight: bold; text-align: center; }
+                
+                .footer { margin-top: 40px; text-align: right; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }
             </style>
         </head>
         <body>
-            <h1>รายงานสรุปโครงการจัดซื้อจัดจ้าง</h1>
+            <h1>รายงานสรุปการดำเนินงานและการส่งมอบ</h1>
             <div class="subtitle">กองบริหารการบินเกษตร | ข้อมูล ณ วันที่ ${thaiDate}</div>
             
+            <div style="font-weight:bold; color:#1e564d; border-left: 5px solid #1bb295; padding-left:10px; font-size: 18px; margin-bottom:15px;">1. สรุปภาพรวมรายแผนงานและแหล่งเงิน</div>
+            ${summaryHtml}
+
+            <div style="font-weight:bold; color:#1e564d; border-left: 5px solid #1bb295; padding-left:10px; font-size: 18px; margin: 30px 0 15px 0;">2. รายละเอียดโครงการรายรายการ</div>
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 40px;">ลำดับ</th>
-                        <th>ชื่อโครงการ / แผนงาน</th>
-                        <th>ผู้รับจ้าง / เลขที่สัญญา</th>
-                        <th>สถานะปัจจุบัน</th>
-                        <th>งบประมาณ (บาท)</th>
-                        <th>PO / ก่อหนี้ (บาท)</th>
-                        <th>เบิกจ่าย (บาท)</th>
+                        <th style="width: 35px;">ที่</th>
+                        <th>ชื่อโครงการ / แผนงาน / แหล่งเงิน</th>
+                        <th style="width: 180px;">ผู้รับจ้าง / เลขสัญญา</th>
+                        <th style="width: 120px;">สถานะปัจจุบัน</th>
+                        <th style="width: 120px;">PO / ก่อหนี้</th>
+                        <th style="width: 80px;">ระยะเวลา (วัน)</th>
+                        <th style="width: 140px;">วันครบกำหนดสัญญา</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -373,19 +442,9 @@ function printProjectSummary() {
                 </tbody>
             </table>
 
-            <div class="summary">
-                <table>
-                    <tr><td>รวมวงเงินงบประมาณทั้งสิ้น:</td><td style="text-align: right;">${formatCurrency(totalBudget)} บาท</td></tr>
-                    <tr><td>รวมวงเงิน PO / ก่อหนี้:</td><td style="text-align: right;">${formatCurrency(totalPO)} บาท</td></tr>
-                    <tr><td>รวมเบิกจ่ายแล้วทั้งสิ้น:</td><td style="text-align: right; color: #1bb295;">${formatCurrency(totalDisbursed)} บาท</td></tr>
-                    <tr class="total"><td>คงเหลือสุทธิ:</td><td style="text-align: right; color: #f5965b;">${formatCurrency(totalBudget - totalDisbursed)} บาท</td></tr>
-                </table>
-            </div>
-
-            <div style="clear: both;"></div>
-            <div class="footer">จัดทำโดย: ระบบบริหารจัดการสัญญา กองบริหารการบินเกษตร</div>
+            <div class="footer">พิมพ์โดย: ระบบบริหารจัดการสัญญา กองบริหารการบินเกษตร</div>
             <script>
-                window.onload = function() { window.print(); window.close(); }
+                window.onload = function() { setTimeout(() => { window.print(); }, 500); }
             </script>
         </body>
         </html>
@@ -488,7 +547,6 @@ function renderReport() {
     document.getElementById('r-budget').innerText = formatCurrency(project.budget);
     document.getElementById('r-po').innerText = formatCurrency(project.po);
     document.getElementById('r-disbursed').innerText = formatCurrency(project.disbursed);
-    document.getElementById('r-balance').innerText = formatCurrency(balance);
 
     const progressPercent = project.budget > 0 ? (Number(project.disbursed) / Number(project.budget)) * 100 : 0;
     document.getElementById('r-progress-bar').style.width = `${progressPercent}%`;
@@ -548,64 +606,6 @@ function renderReport() {
         endText.innerText = '';
     }
 
-    renderTimelineMonths(earliestDate, expiryDate, dOrder.map(k => project.dates[k]));
-}
-
-function renderTimelineMonths(earliestObj, expiryStr, allDates) {
-    const container = document.getElementById('dynamic-months-grid');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    let latestStr = null;
-    for (let d of allDates) {
-        if (d && d !== '-' && !d.includes('รอ')) {
-            const dt = parseThaiDate(d);
-            if (dt) latestStr = d;
-        }
-    }
-
-    const end = expiryStr ? parseThaiDate(expiryStr) : (latestStr ? parseThaiDate(latestStr) : null);
-    const start = earliestObj;
-
-    if (!start || !end || start > end) {
-        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: #888; padding: 20px;">ระบุกำหนดวันที่ในแต่ละขั้นตอนใดๆ ก่อน เพื่อเริ่มแสดงไทม์ไลน์</div>';
-        return;
-    }
-
-    const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-    let current = new Date(start.getFullYear(), start.getMonth(), 1);
-    const endBound = new Date(end.getFullYear(), end.getMonth(), 1);
-
-    while (current <= endBound) {
-        let m = current.getMonth();
-        let y = String(current.getFullYear() + 543).slice(-2);
-
-        let label = (current.getTime() === endBound.getTime()) ? (expiryStr ? 'สิ้นสุดสัญญา' : 'ดำเนินงานอยู่') : 'ดำเนินงาน';
-        if (current.getFullYear() === start.getFullYear() && current.getMonth() === start.getMonth()) label = 'เริ่ม (ร่าง TOR)';
-
-        let boxClass = 'month-box';
-
-        if (current.getTime() === endBound.getTime() && expiryStr) {
-            boxClass += ' end';
-        } else if (current.getFullYear() === start.getFullYear() && current.getMonth() === start.getMonth()) {
-            boxClass += ' active';
-        } else {
-            boxClass += ' active-work';
-        }
-
-        const div = document.createElement('div');
-        div.className = boxClass;
-        div.innerHTML = `
-            <div class="month-name">${thaiMonths[m]}</div>
-            <div class="month-year">${y}</div>
-            <div class="month-status">${label}</div>
-        `;
-        container.appendChild(div);
-
-        current.setMonth(current.getMonth() + 1);
-        if (container.children.length > 70) break; // Hard limit roughly 5 years
-    }
 }
 
 function updateTimelineStep(stepId, iconNum, dateValue, noteValue, daysTaken) {
@@ -744,9 +744,9 @@ async function updateSingleStep(stepKey) {
         tor: 'ร่าง TOR',
         announce: 'ประกาศจัดซื้อจัดจ้าง',
         consideration: 'พิจารณาผลผู้ชนะ',
-        appeal: 'อยู่ระหว่างช่วงอุทธรณ์',
-        waitsign: 'รอลงนามผูกพัน',
-        signed: 'ลงนามสัญญาเสร็จสิ้น',
+        appeal: 'ประกาศผู้ชนะ',
+        waitsign: 'สนอง',
+        signed: 'เริ่มงาน (ลงนามสัญญา)',
         inspection: 'ตรวจรับงาน/พัสดุ',
         payment: 'เบิกจ่ายเงิน'
     };
@@ -754,7 +754,7 @@ async function updateSingleStep(stepKey) {
     const order = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
     const idx = order.indexOf(stepKey);
 
-    if (idx > 0) {
+    if (idx > 0 && stepKey !== 'waitsign') {
         const prevKey = order[idx - 1];
         const prevVal = project.dates[prevKey];
         if (!prevVal || prevVal === '-' || prevVal.includes('รอ')) {
@@ -827,6 +827,16 @@ async function updateSingleStep(stepKey) {
             }
             if (stepKey === 'signed' && project.notes) project.notes.contractNo = '';
         } else {
+            // New logic: auto-complete previous steps if stepKey is 'waitsign'
+            if (stepKey === 'waitsign') {
+                for (let i = 0; i < idx; i++) {
+                    const k = order[i];
+                    if (!project.dates[k] || project.dates[k] === '-' || project.dates[k].includes('รอ')) {
+                        project.dates[k] = formValues.date;
+                    }
+                }
+            }
+
             project.dates[stepKey] = formValues.date;
             if (!project.notes) project.notes = {};
             project.notes[stepKey] = formValues.note;
