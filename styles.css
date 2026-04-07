@@ -476,18 +476,27 @@ body {
 }
 
 .personnel-info p {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     color: #555;
+    display: flex;
+    align-items: center;
 }
 
-.personnel-info p:last-child {
-    margin-bottom: 0;
+.personnel-info p i {
+    width: 20px;
+    margin-right: 10px;
+    color: var(--teal);
 }
 
-.personnel-info span {
+.personnel-info span:first-of-type {
     color: var(--text-muted);
-    width: 100px;
-    display: inline-block;
+    min-width: 100px;
+}
+
+.personnel-info span:last-of-type {
+    color: #333;
+    font-weight: 600;
+    flex: 1;
 }
 
 .progress-section {

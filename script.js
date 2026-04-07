@@ -127,15 +127,19 @@ function switchView(viewName) {
     const pageTitle = document.getElementById('page-title');
 
     if (viewName === 'dashboard') {
-        document.getElementById('nav-dashboard').classList.add('active');
-        document.getElementById('view-dashboard').classList.add('active');
+        const navDashboard = document.getElementById('nav-dashboard');
+        const viewDashboard = document.getElementById('view-dashboard');
+        if (navDashboard) navDashboard.classList.add('active');
+        if (viewDashboard) viewDashboard.classList.add('active');
         pageTitle.innerText = "ระบบจัดซื้อจัดจ้าง กองบริหารการบินเกษตร";
         headerActionsContainer.innerHTML = '';
         renderDashboard();
     } else if (viewName === 'report') {
-        document.getElementById('nav-report').classList.add('active');
-        document.getElementById('view-report').classList.add('active');
-        pageTitle.innerText = "แบบรายงานแผนการดำเนินงานงบลงทุน";
+        const navReport = document.getElementById('nav-report');
+        const viewReport = document.getElementById('view-report');
+        if (navReport) navReport.classList.add('active');
+        if (viewReport) viewReport.classList.add('active');
+        pageTitle.innerText = "รายละเอียดโครงการ / แผนการส่งมอบ";
         headerActionsContainer.innerHTML = '<button class="btn btn-teal" onclick="window.print()"><i class="fa-solid fa-print"></i> พิมพ์รายงาน</button>';
         renderReport();
     }
@@ -774,7 +778,7 @@ async function updateSingleStep(stepKey) {
         `;
     }
 
-    const { value: formValues } = await Swal.fire({
+    const { value: formValues, isDismissed } = await Swal.fire({
         title: `อัปเดต: ${stepNames[stepKey]}`,
         html: `
             <div style="text-align: left; padding: 0 10px; font-family: Sarabun;">
@@ -783,13 +787,18 @@ async function updateSingleStep(stepKey) {
                 <label style="display:block; margin-bottom:5px; font-weight:600; color:#555; font-size:14px;">หมายเหตุ</label>
                 <input type="text" id="swal-note" class="swal2-input" placeholder="เว้นว่างได้ หรือระบุสถานะ..." value="${(project.notes && project.notes[stepKey]) || ''}" style="width: 100%; margin: 0; font-size:14px; height: 40px;">
                 ${extraInputHtml}
-                <div style="margin-top:15px; font-size:12px; color:#888;">* หากทำการล้างวันที่ออก ขั้นตอนถัดไปทั้งหมดจะถูกรีเซ็ตไปด้วย</div>
+                <div style="margin-top:15px; font-size:12px; color:#888;">* หากต้องการถอยขั้นตอน (Reset) ให้ล้างวันที่ให้ว่างแล้วกดบันทึก</div>
             </div>
         `,
         focusConfirm: false,
         showCancelButton: true,
+        showDenyButton: !!currentIsoDate,
         confirmButtonText: 'บันทึก',
+        denyButtonText: 'ล้างข้อมูลขั้นตอนนี้',
         cancelButtonText: 'ยกเลิก',
+        customClass: {
+            denyButton: 'swal2-deny-custom'
+        },
         didOpen: () => {
             flatpickr("#swal-date", {
                 locale: "th",
@@ -808,6 +817,9 @@ async function updateSingleStep(stepKey) {
                     return flatpickr.formatDate(date, formatStr);
                 }
             });
+        },
+        preDeny: () => {
+            return { date: '', note: '', contractNo: '' };
         },
         preConfirm: () => {
             const rawDate = document.getElementById('swal-date').value;
