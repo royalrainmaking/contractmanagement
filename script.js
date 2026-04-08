@@ -143,6 +143,19 @@ function switchView(viewName) {
         headerActionsContainer.innerHTML = '<button class="btn btn-teal" onclick="window.print()"><i class="fa-solid fa-print"></i> พิมพ์รายงาน</button>';
         renderReport();
     }
+
+    // Auto-close sidebar on mobile after selection
+    if (window.innerWidth <= 768) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('show')) {
+            toggleSidebar();
+        }
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.toggle('show');
 }
 
 const formatCurrency = (num) => Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -317,26 +330,30 @@ function renderDashboard() {
         if (isCompleted) tr.classList.add('row-completed');
 
         tr.innerHTML = `
-            <td>${index + 1}</td>
-            <td>
-                ${p.name.substring(0, 80) + (p.name.length > 80 ? '...' : '')}<br>
-                ${badgesHtml}
-                ${contractBadge}
+            <td data-label="ลำดับ">${index + 1}</td>
+            <td data-label="ชื่อโครงการ">
+                <div style="display:flex; align-items:flex-start;">
+                    <div style="flex:1;">
+                        ${p.name.substring(0, 80) + (p.name.length > 80 ? '...' : '')}<br>
+                        ${badgesHtml}
+                        ${contractBadge}
+                    </div>
+                </div>
             </td>
-            <td>
+            <td data-label="ผู้รับจ้าง/ผู้ควบคุม">
                 <div class="sub-text bold">${p.contractor || '-'}</div>
                 <div class="sub-text">ผู้ควบคุมงาน: ${p.supervisor || '-'}</div>
             </td>
-            <td>${getCurrentProjectStatusHTML(p)}</td>
-            <td class="text-yellow">฿${formatCurrency(p.po || 0)}</td>
-            <td style="font-weight:600; text-align:center;">${expiryDate ? formatThaiShort(p.dates.signed) : '-'}</td>
-            <td>
+            <td data-label="สถานะ">${getCurrentProjectStatusHTML(p)}</td>
+            <td data-label="PO / ก่อหนี้" class="text-yellow">฿${formatCurrency(p.po || 0)}</td>
+            <td data-label="กำหนดส่งมอบ" style="font-weight:600; text-align:center;">${expiryDate ? formatThaiShort(p.dates.signed) : '-'}</td>
+            <td data-label="ความคืบหน้า">
                 <div style="font-size: 11px; margin-bottom: 4px; font-weight: 600; color: ${progressColor};">${progressPercent.toFixed(1)}%</div>
                 <div style="width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
                     <div style="width: ${progressPercent}%; height: 100%; background: ${progressColor}; transition: width 0.4s ease;"></div>
                 </div>
             </td>
-            <td>
+            <td data-label="จัดการ">
                 <button class="icon-btn" onclick="openEditModal(${p.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
                 <button class="icon-btn" style="color: #e74c3c; margin-left: 10px;" onclick="deleteProject(event, ${p.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
             </td>

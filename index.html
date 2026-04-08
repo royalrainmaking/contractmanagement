@@ -20,9 +20,21 @@
 </head>
 
 <body>
+    <div class="mobile-header">
+        <div class="mobile-logo-group">
+            <img src="https://royalrainmaking.github.io/FuelManagement/img/logo.png"
+                style="height: 40px; margin-right: 10px;">
+            <div style="font-weight: 700; color: white; font-size: 14px; line-height: 1.2;">กองบริหารการบินเกษตร</div>
+        </div>
+        <button class="menu-toggle" onclick="toggleSidebar()">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+    </div>
+
     <div class="app-container">
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo"
                 style="text-align: center; padding: 25px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;">
                 <img src="https://royalrainmaking.github.io/FuelManagement/img/logo.png"
