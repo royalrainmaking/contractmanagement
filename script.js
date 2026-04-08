@@ -148,22 +148,29 @@ function switchView(viewName) {
 const formatCurrency = (num) => Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function getCurrentProjectStatusHTML(p) {
-    const stepNames = { payment: 'เบิกจ่ายเงินเสร็จสิ้น', inspection: 'ตรวจรับแล้ว', signed: 'เริ่มงาน (ลงนามสัญญา)', waitsign: 'สนอง', appeal: 'ประกาศผู้ชนะ', consideration: 'พิจารณาผลผู้ชนะ', announce: 'ประกาศจัดซื้อจัดจ้าง', tor: 'ร่าง TOR' };
+    const stepNames = { payment: 'เบิกจ่ายเงินเสร็จสิ้น', inspection: 'ตรวจรับแล้ว', signed: 'วันครบกำหนดสัญญา', waitsign: 'สนอง', appeal: 'ประกาศผู้ชนะ', consideration: 'พิจารณาผลผู้ชนะ', announce: 'ประกาศจัดซื้อจัดจ้าง', tor: 'ร่าง TOR' };
     const order = ['payment', 'inspection', 'signed', 'waitsign', 'appeal', 'consideration', 'announce', 'tor'];
 
     let currentStepText = '<span style="color:#888;">ยังไม่เริ่มดำเนินการ</span>';
     const isSigned = p.dates && p.dates.signed && p.dates.signed !== '-' && !p.dates.signed.includes('รอ');
 
     for (let k of order) {
-        if (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ')) {
-            currentStepText = `<span style="color:var(--teal); font-weight:600;"><i class="fa-regular fa-circle-check"></i> ${stepNames[k]}</span><br><span style="font-size:12px; color:#666;">อัปเดต: ${formatThaiShort(p.dates[k])}</span>`;
+        let isDone = p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ');
+        const idx = order.indexOf(k);
+        // If the step is tor/announce/consideration/appeal/waitsign and 'signed' is done, treat it as done
+        if (!isDone && isSigned && ['tor', 'announce', 'consideration', 'appeal', 'waitsign'].includes(k)) {
+            isDone = true;
+        }
+
+        if (isDone) {
+            currentStepText = `<span style="color:var(--teal); font-weight:600;"><i class="fa-regular fa-circle-check"></i> ${stepNames[k]}</span><br><span style="font-size:12px; color:#666;">อัปเดต: ${formatThaiShort(p.dates[k] || 'เรียบร้อย')}</span>`;
             break;
         }
     }
 
     let expiryHtml = '';
-    if (isSigned && p.duration > 0) {
-        const expStr = calculateExpiryDate(p.dates.signed, p.duration);
+    if (isSigned) {
+        const expStr = p.dates.signed;
         if (expStr) {
             const expDate = parseThaiDate(expStr);
             if (expDate) {
@@ -266,9 +273,14 @@ function renderDashboard() {
 
         // Calculate operational progress based on steps (1-8)
         const stepsToCheck = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
+        const isSignedDone = p.dates && p.dates.signed && p.dates.signed !== '-' && !p.dates.signed.includes('รอ');
         let completedSteps = 0;
-        stepsToCheck.forEach(k => {
-            if (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ')) {
+        stepsToCheck.forEach((k, i) => {
+            let isDone = (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ'));
+            // Imply steps 1-5 are done if step 6 is done
+            if (!isDone && i < 5 && isSignedDone) isDone = true;
+
+            if (isDone) {
                 completedSteps++;
             }
         });
@@ -276,12 +288,13 @@ function renderDashboard() {
         const progressColor = progressPercent >= 100 ? '#8bc36a' : (progressPercent >= 50 ? '#1bb295' : '#f5965b');
 
         // Expiry & Deadline Calculation
-        const expiryDate = calculateExpiryDate(p.dates.signed, p.duration);
+        const expiryDate = parseThaiDate(p.dates.signed);
         let remainingDays = '-';
         let remainingColor = '#333';
         if (expiryDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
+            expiryDate.setHours(0, 0, 0, 0);
             const timeDiff = expiryDate.getTime() - today.getTime();
             remainingDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
             remainingColor = remainingDays > 7 ? '#1bb295' : (remainingDays >= 0 ? '#f5965b' : '#e74c3c');
@@ -300,7 +313,7 @@ function renderDashboard() {
             </td>
             <td>${getCurrentProjectStatusHTML(p)}</td>
             <td class="text-yellow">฿${formatCurrency(p.po || 0)}</td>
-            <td style="font-weight:600; text-align:center;">${expiryDate ? formatThaiShort(expiryDate) : '-'}</td>
+            <td style="font-weight:600; text-align:center;">${expiryDate ? formatThaiShort(p.dates.signed) : '-'}</td>
             <td>
                 <div style="font-size: 11px; margin-bottom: 4px; font-weight: 600; color: ${progressColor};">${progressPercent.toFixed(1)}%</div>
                 <div style="width: 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
@@ -382,7 +395,7 @@ function printProjectSummary() {
 
     let rowsHtml = filtered.map((p, index) => {
         const statusHtml = getCurrentProjectStatusHTML(p).replace(/<[^>]*>?/gm, '');
-        const expiryDate = calculateExpiryDate(p.dates.signed, p.duration);
+        const expiryDate = parseThaiDate(p.dates.signed);
         return `
             <tr>
                 <td style="text-align: center;">${index + 1}</td>
@@ -391,7 +404,7 @@ function printProjectSummary() {
                 <td style="text-align:center">${statusHtml}</td>
                 <td style="text-align: right;">${formatCurrency(p.po || 0)}</td>
                 <td style="text-align: center;">${p.duration || '-'}</td>
-                <td style="text-align: center; font-weight:bold; color:#d81b60;">${expiryDate ? formatThaiShort(expiryDate) : '-'}</td>
+                <td style="text-align: center; font-weight:bold; color:#d81b60;">${expiryDate ? formatThaiShort(p.dates.signed) : '-'}</td>
             </tr>
         `;
     }).join('');
@@ -588,11 +601,13 @@ function renderReport() {
         }
     }
 
-    updateTimelineStep('tor', '1', project.dates.tor, notes.tor, daysDiffText['tor']);
-    updateTimelineStep('announce', '2', project.dates.announce, notes.announce, daysDiffText['announce']);
-    updateTimelineStep('consideration', '3', project.dates.consideration, notes.consideration, daysDiffText['consideration']);
-    updateTimelineStep('appeal', '4', project.dates.appeal, notes.appeal, daysDiffText['appeal']);
-    updateTimelineStep('waitsign', '5', project.dates.waitsign, notes.waitsign, daysDiffText['waitsign']);
+    const isSignedDone = project.dates.signed && project.dates.signed !== '-' && !project.dates.signed.includes('รอ');
+
+    updateTimelineStep('tor', '1', project.dates.tor || (isSignedDone ? 'เรียบร้อย' : ''), notes.tor, daysDiffText['tor']);
+    updateTimelineStep('announce', '2', project.dates.announce || (isSignedDone ? 'เรียบร้อย' : ''), notes.announce, daysDiffText['announce']);
+    updateTimelineStep('consideration', '3', project.dates.consideration || (isSignedDone ? 'เรียบร้อย' : ''), notes.consideration, daysDiffText['consideration']);
+    updateTimelineStep('appeal', '4', project.dates.appeal || (isSignedDone ? 'เรียบร้อย' : ''), notes.appeal, daysDiffText['appeal']);
+    updateTimelineStep('waitsign', '5', project.dates.waitsign || (isSignedDone ? 'เรียบร้อย' : ''), notes.waitsign, daysDiffText['waitsign']);
     updateTimelineStep('signed', '6', project.dates.signed, notes.signed, daysDiffText['signed']);
     updateTimelineStep('inspection', '7', project.dates.inspection, notes.inspection, daysDiffText['inspection']);
     updateTimelineStep('payment', '8', project.dates.payment, notes.payment, daysDiffText['payment']);
@@ -600,11 +615,11 @@ function renderReport() {
     // Contract End Calculation
     const endAlert = document.getElementById('contract-end-alert');
     const endText = document.getElementById('contract-end-text');
-    const expiryDate = calculateExpiryDate(project.dates.signed, project.duration);
+    const expiryDateStr = project.dates.signed;
 
-    if (expiryDate) {
+    if (expiryDateStr && expiryDateStr !== '-' && !expiryDateStr.includes('รอ')) {
         endAlert.style.display = 'block';
-        endText.innerText = `วันสิ้นสุดสัญญา: ${formatThaiShort(expiryDate)} (ระยะเวลา ${project.duration} วัน)`;
+        endText.innerText = `วันครบกำหนดสัญญา: ${formatThaiShort(expiryDateStr)} (ระยะเวลา ${project.duration} วัน)`;
     } else {
         endAlert.style.display = 'none';
         endText.innerText = '';
@@ -750,7 +765,7 @@ async function updateSingleStep(stepKey) {
         consideration: 'พิจารณาผลผู้ชนะ',
         appeal: 'ประกาศผู้ชนะ',
         waitsign: 'สนอง',
-        signed: 'เริ่มงาน (ลงนามสัญญา)',
+        signed: 'วันครบกำหนดสัญญา',
         inspection: 'ตรวจรับงาน/พัสดุ',
         payment: 'เบิกจ่ายเงิน'
     };
@@ -758,7 +773,7 @@ async function updateSingleStep(stepKey) {
     const order = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
     const idx = order.indexOf(stepKey);
 
-    if (idx > 0 && stepKey !== 'waitsign') {
+    if (idx > 0 && stepKey !== 'waitsign' && stepKey !== 'signed') {
         const prevKey = order[idx - 1];
         const prevVal = project.dates[prevKey];
         if (!prevVal || prevVal === '-' || prevVal.includes('รอ')) {
@@ -782,8 +797,8 @@ async function updateSingleStep(stepKey) {
         title: `อัปเดต: ${stepNames[stepKey]}`,
         html: `
             <div style="text-align: left; padding: 0 10px; font-family: Sarabun;">
-                <label style="display:block; margin-bottom:5px; font-weight:600; color:#555; font-size:14px;">วันที่</label>
-                <input type="text" id="swal-date" class="swal2-input" placeholder="เลือกวันที่จากปฏิทิน" value="${currentIsoDate}" style="width: 100%; margin: 0 0 15px 0; font-size:14px; height: 40px; cursor: pointer; background: white;">
+                <label style="display:block; margin-bottom:5px; font-weight:600; color:#555; font-size:14px;">วันที่${stepKey === 'signed' ? 'ครบกำหนดสัญญา' : ''}</label>
+                <input type="text" id="swal-date" class="swal2-input" placeholder="${stepKey === 'signed' ? 'ระบุวันครบกำหนดสัญญา' : 'เลือกวันที่จากปฏิทิน'}" value="${currentIsoDate}" style="width: 100%; margin: 0 0 15px 0; font-size:14px; height: 40px; cursor: pointer; background: white;">
                 <label style="display:block; margin-bottom:5px; font-weight:600; color:#555; font-size:14px;">หมายเหตุ</label>
                 <input type="text" id="swal-note" class="swal2-input" placeholder="เว้นว่างได้ หรือระบุสถานะ..." value="${(project.notes && project.notes[stepKey]) || ''}" style="width: 100%; margin: 0; font-size:14px; height: 40px;">
                 ${extraInputHtml}
@@ -839,12 +854,13 @@ async function updateSingleStep(stepKey) {
             }
             if (stepKey === 'signed' && project.notes) project.notes.contractNo = '';
         } else {
-            // New logic: auto-complete previous steps if stepKey is 'waitsign'
-            if (stepKey === 'waitsign') {
+            // New logic: auto-complete previous steps if stepKey is 'waitsign' or 'signed'
+            if (stepKey === 'waitsign' || stepKey === 'signed') {
                 for (let i = 0; i < idx; i++) {
                     const k = order[i];
                     if (!project.dates[k] || project.dates[k] === '-' || project.dates[k].includes('รอ')) {
-                        project.dates[k] = formValues.date;
+                        // For 'signed' (Expiry Date), we use "เรียบร้อย" instead of the future expiry date
+                        project.dates[k] = (stepKey === 'signed') ? 'เรียบร้อย' : formValues.date;
                     }
                 }
             }
