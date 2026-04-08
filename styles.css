@@ -334,6 +334,16 @@ body {
     background-color: var(--primary-bg);
 }
 
+.project-table tbody tr.row-completed {
+    background-color: #f0fdf4;
+    /* Light green for completed */
+}
+
+.project-table tbody tr.row-completed:hover {
+    background-color: #dcfce7;
+    /* Slightly darker green on hover */
+}
+
 .sub-text {
     font-size: 13px;
     color: var(--text-muted);

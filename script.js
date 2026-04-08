@@ -152,26 +152,40 @@ function getCurrentProjectStatusHTML(p) {
     const order = ['payment', 'inspection', 'signed', 'waitsign', 'appeal', 'consideration', 'announce', 'tor'];
 
     let currentStepText = '<span style="color:#888;">ยังไม่เริ่มดำเนินการ</span>';
-    const isSigned = p.dates && p.dates.signed && p.dates.signed !== '-' && !p.dates.signed.includes('รอ');
+    const isStepDone = (k) => (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ')) || (k === 'signed' && p.notes && (p.notes.contractNo || p.notes.signed));
 
+    // In reversed order, the first 'done' step is the current status
+    // and it implies all subsequent steps in this REVERSED order (which are previous steps in time) are also done.
     for (let k of order) {
-        let isDone = p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ');
-        const idx = order.indexOf(k);
-        // If the step is tor/announce/consideration/appeal/waitsign and 'signed' is done, treat it as done
-        if (!isDone && isSigned && ['tor', 'announce', 'consideration', 'appeal', 'waitsign'].includes(k)) {
-            isDone = true;
+        let isDone = isStepDone(k);
+        if (!isDone) {
+            // Check if any step that comes AFTER this one in natural order is done
+            const naturalOrder = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
+            const currentIdx = naturalOrder.indexOf(k);
+            for (let i = currentIdx + 1; i < naturalOrder.length; i++) {
+                if (isStepDone(naturalOrder[i])) {
+                    isDone = true;
+                    break;
+                }
+            }
         }
 
         if (isDone) {
-            currentStepText = `<span style="color:var(--teal); font-weight:600;"><i class="fa-regular fa-circle-check"></i> ${stepNames[k]}</span><br><span style="font-size:12px; color:#666;">อัปเดต: ${formatThaiShort(p.dates[k] || 'เรียบร้อย')}</span>`;
+            let updateVal = p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ') ? formatThaiShort(p.dates[k]) : 'เรียบร้อย';
+            // If it's step 6 and no date, show the note if exists
+            if (k === 'signed' && (updateVal === 'เรียบร้อย' || !updateVal) && p.notes && p.notes.signed) {
+                updateVal = p.notes.signed;
+            }
+            currentStepText = `<span style="color:var(--teal); font-weight:600;"><i class="fa-regular fa-circle-check"></i> ${stepNames[k]}</span><br><span style="font-size:12px; color:#666;">อัปเดต: ${updateVal}</span>`;
             break;
         }
     }
 
     let expiryHtml = '';
+    const isSigned = isStepDone('signed');
     if (isSigned) {
         const expStr = p.dates.signed;
-        if (expStr) {
+        if (expStr && expStr !== '-' && !expStr.includes('รอ')) {
             const expDate = parseThaiDate(expStr);
             if (expDate) {
                 const now = new Date();
@@ -273,17 +287,16 @@ function renderDashboard() {
 
         // Calculate operational progress based on steps (1-8)
         const stepsToCheck = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
-        const isSignedDone = p.dates && p.dates.signed && p.dates.signed !== '-' && !p.dates.signed.includes('รอ');
-        let completedSteps = 0;
+        let maxCompletedIdx = -1;
         stepsToCheck.forEach((k, i) => {
-            let isDone = (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ'));
-            // Imply steps 1-5 are done if step 6 is done
-            if (!isDone && i < 5 && isSignedDone) isDone = true;
-
-            if (isDone) {
-                completedSteps++;
+            const isActuallyDone = (p.dates && p.dates[k] && p.dates[k] !== '-' && !p.dates[k].includes('รอ'));
+            const isSignedReached = (k === 'signed' && p.notes && (p.notes.contractNo || p.notes.signed));
+            if (isActuallyDone || isSignedReached) {
+                maxCompletedIdx = i;
             }
         });
+
+        const completedSteps = maxCompletedIdx + 1;
         const progressPercent = (completedSteps / 8) * 100;
         const progressColor = progressPercent >= 100 ? '#8bc36a' : (progressPercent >= 50 ? '#1bb295' : '#f5965b');
 
@@ -299,6 +312,9 @@ function renderDashboard() {
             remainingDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
             remainingColor = remainingDays > 7 ? '#1bb295' : (remainingDays >= 0 ? '#f5965b' : '#e74c3c');
         }
+
+        const isCompleted = maxCompletedIdx === 7;
+        if (isCompleted) tr.classList.add('row-completed');
 
         tr.innerHTML = `
             <td>${index + 1}</td>
@@ -601,16 +617,21 @@ function renderReport() {
         }
     }
 
-    const isSignedDone = project.dates.signed && project.dates.signed !== '-' && !project.dates.signed.includes('รอ');
+    let maxIdx = -1;
+    dOrder.forEach((k, i) => {
+        const isActuallyDone = (project.dates[k] && project.dates[k] !== '-' && !project.dates[k].includes('รอ'));
+        const isSignedReached = (k === 'signed' && project.notes && (project.notes.contractNo || project.notes.signed));
+        if (isActuallyDone || isSignedReached) maxIdx = i;
+    });
 
-    updateTimelineStep('tor', '1', project.dates.tor || (isSignedDone ? 'เรียบร้อย' : ''), notes.tor, daysDiffText['tor']);
-    updateTimelineStep('announce', '2', project.dates.announce || (isSignedDone ? 'เรียบร้อย' : ''), notes.announce, daysDiffText['announce']);
-    updateTimelineStep('consideration', '3', project.dates.consideration || (isSignedDone ? 'เรียบร้อย' : ''), notes.consideration, daysDiffText['consideration']);
-    updateTimelineStep('appeal', '4', project.dates.appeal || (isSignedDone ? 'เรียบร้อย' : ''), notes.appeal, daysDiffText['appeal']);
-    updateTimelineStep('waitsign', '5', project.dates.waitsign || (isSignedDone ? 'เรียบร้อย' : ''), notes.waitsign, daysDiffText['waitsign']);
-    updateTimelineStep('signed', '6', project.dates.signed, notes.signed, daysDiffText['signed']);
-    updateTimelineStep('inspection', '7', project.dates.inspection, notes.inspection, daysDiffText['inspection']);
-    updateTimelineStep('payment', '8', project.dates.payment, notes.payment, daysDiffText['payment']);
+    updateTimelineStep('tor', '1', project.dates.tor || (maxIdx >= 0 ? 'เรียบร้อย' : ''), notes.tor, daysDiffText['tor']);
+    updateTimelineStep('announce', '2', project.dates.announce || (maxIdx >= 1 ? 'เรียบร้อย' : ''), notes.announce, daysDiffText['announce']);
+    updateTimelineStep('consideration', '3', project.dates.consideration || (maxIdx >= 2 ? 'เรียบร้อย' : ''), notes.consideration, daysDiffText['consideration']);
+    updateTimelineStep('appeal', '4', project.dates.appeal || (maxIdx >= 3 ? 'เรียบร้อย' : ''), notes.appeal, daysDiffText['appeal']);
+    updateTimelineStep('waitsign', '5', project.dates.waitsign || (maxIdx >= 4 ? 'เรียบร้อย' : ''), notes.waitsign, daysDiffText['waitsign']);
+    updateTimelineStep('signed', '6', project.dates.signed || (maxIdx >= 5 ? 'เรียบร้อย' : ''), notes.signed, daysDiffText['signed']);
+    updateTimelineStep('inspection', '7', project.dates.inspection || (maxIdx >= 6 ? 'เรียบร้อย' : ''), notes.inspection, daysDiffText['inspection']);
+    updateTimelineStep('payment', '8', project.dates.payment || (maxIdx >= 7 ? 'เรียบร้อย' : ''), notes.payment, daysDiffText['payment']);
 
     // Contract End Calculation
     const endAlert = document.getElementById('contract-end-alert');
@@ -773,7 +794,7 @@ async function updateSingleStep(stepKey) {
     const order = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
     const idx = order.indexOf(stepKey);
 
-    if (idx > 0 && stepKey !== 'waitsign' && stepKey !== 'signed') {
+    if (idx > 0 && stepKey !== 'waitsign' && stepKey !== 'signed' && stepKey !== 'payment') {
         const prevKey = order[idx - 1];
         const prevVal = project.dates[prevKey];
         if (!prevVal || prevVal === '-' || prevVal.includes('รอ')) {
@@ -847,7 +868,8 @@ async function updateSingleStep(stepKey) {
     });
 
     if (formValues) {
-        if (formValues.date.trim() === '') {
+        // Allow empty date for 'signed' if there's contact info or notes
+        if (formValues.date.trim() === '' && (stepKey !== 'signed' || (formValues.note.trim() === '' && (!formValues.contractNo || formValues.contractNo.trim() === '')))) {
             for (let i = idx; i < order.length; i++) {
                 project.dates[order[i]] = '';
                 if (project.notes) project.notes[order[i]] = '';
