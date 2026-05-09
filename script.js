@@ -668,7 +668,9 @@ function renderReport() {
 function updateTimelineStep(stepId, iconNum, dateValue, noteValue, daysTaken) {
     const elDate = document.getElementById(`date-${stepId}`);
     const elStep = document.getElementById(`step-${stepId}`);
-    const elLine = document.getElementById(`line-${parseInt(iconNum) - 1}`);
+    // HTML uses line-1 through line-7 (line between step N and N+1 = line-N)
+    // iconNum is '1'...'8', the LINE after step N is line-N (not line-(N-1))
+    const elLine = document.getElementById(`line-${parseInt(iconNum)}`);
 
     if (!elDate || !elStep) return;
 
@@ -811,14 +813,8 @@ async function updateSingleStep(stepKey) {
     const order = ['tor', 'announce', 'consideration', 'appeal', 'waitsign', 'signed', 'inspection', 'payment'];
     const idx = order.indexOf(stepKey);
 
-    if (idx > 0 && stepKey !== 'waitsign' && stepKey !== 'signed' && stepKey !== 'payment') {
-        const prevKey = order[idx - 1];
-        const prevVal = project.dates[prevKey];
-        if (!prevVal || prevVal === '-' || prevVal.includes('รอ')) {
-            Swal.fire('แจ้งเตือน', `กรุณาอัปเดตขั้นตอน "${stepNames[prevKey]}" ให้เรียบร้อยก่อน`, 'warning');
-            return;
-        }
-    }
+    // ทุก step อนุญาตให้กดข้ามได้ (auto-fill ขั้นตอนก่อนหน้าเป็น 'เรียบร้อย' อัตโนมัติ)
+    // ไม่บล็อกการกดใดๆ ทั้งสิ้น
 
     const currentIsoDate = toISODate(project.dates[stepKey]);
 
@@ -893,14 +889,11 @@ async function updateSingleStep(stepKey) {
             }
             if (stepKey === 'signed' && project.notes) project.notes.contractNo = '';
         } else {
-            // New logic: auto-complete previous steps if stepKey is 'waitsign' or 'signed'
-            if (stepKey === 'waitsign' || stepKey === 'signed') {
-                for (let i = 0; i < idx; i++) {
-                    const k = order[i];
-                    if (!project.dates[k] || project.dates[k] === '-' || project.dates[k].includes('รอ')) {
-                        // For 'signed' (Expiry Date), we use "เรียบร้อย" instead of the future expiry date
-                        project.dates[k] = (stepKey === 'signed') ? 'เรียบร้อย' : formValues.date;
-                    }
+            // Auto-complete ขั้นตอนก่อนหน้าทั้งหมดที่ยังไม่ได้กรอก ให้เป็น 'เรียบร้อย'
+            for (let i = 0; i < idx; i++) {
+                const k = order[i];
+                if (!project.dates[k] || project.dates[k] === '-' || project.dates[k].includes('รอ')) {
+                    project.dates[k] = 'เรียบร้อย';
                 }
             }
 
