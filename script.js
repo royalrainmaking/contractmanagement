@@ -196,7 +196,10 @@ function getCurrentProjectStatusHTML(p) {
 
     let expiryHtml = '';
     const isSigned = isStepDone('signed');
-    if (isSigned) {
+    const isInspection = isStepDone('inspection');
+    const isPayment = isStepDone('payment');
+    
+    if (isSigned && !isInspection && !isPayment) {
         const expStr = p.dates.signed;
         if (expStr && expStr !== '-' && !expStr.includes('รอ')) {
             const expDate = parseThaiDate(expStr);
